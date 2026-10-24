@@ -1,0 +1,42 @@
+.DS_Store
+Thumbs.db
+
+# Секрети и локална среда — НИКОГА не се качват в Git.
+.env
+.env.*
+!.env.example
+auth.json
+*.pem
+/storage/*.key
+/storage/oauth-*.key
+
+.phpactor.json
+.phpunit.result.cache
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/.claude/launch.json
+
+/bootstrap/ssr
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/pail
+/vendor
+
+# Локална SQLite база (проектът работи с MySQL)
+/database/*.sqlite
+/database/*.sqlite-journal
+
+Homestead.json
+Homestead.yaml
+npm-debug.log
+yarn-error.log
+
+# Локални архиви на базата данни
+/storage/backups
+*.sql.gz
