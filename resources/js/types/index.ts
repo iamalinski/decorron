@@ -70,3 +70,24 @@ export interface Paginated<T> {
 export interface Collection<T> {
     data: T[];
 }
+
+/** Един ред от списъка „какво пречи на изтриването“. */
+export interface DeletionBlocker {
+    key: string;
+    label: string;
+    count: number;
+}
+
+/**
+ * Полетата за Кошчето.
+ *
+ * `deleted_at` идва навсякъде; останалите само на екраните с подробности,
+ * където има бутон за изтриване върху конкретния запис.
+ */
+export interface Trashable {
+    deleted_at?: string | null;
+    can_be_deleted?: boolean;
+    deletion_blockers?: DeletionBlocker[];
+    can_be_deleted_forever?: boolean;
+    restore_blockers?: string[];
+}

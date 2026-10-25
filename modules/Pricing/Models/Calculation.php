@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Modules\Pricing\Models;
 
 use App\Concerns\OwnedByUser;
+use App\Concerns\Trashable;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Modules\Crm\Models\Customer;
+use Modules\Crm\Models\Opportunity;
 use Modules\Pricing\Database\Factories\CalculationFactory;
 
 /**
@@ -22,6 +26,7 @@ class Calculation extends Model
     use HasFactory;
 
     use OwnedByUser;
+    use Trashable;
 
     protected $fillable = [
         'calculation_number',
@@ -77,6 +82,50 @@ class Calculation extends Model
         return $this->hasMany(CalculationItem::class)->orderBy('position');
     }
 
+    /**
+     * Връзка към CRM. Колоните се попълват от Modules\Crm\Services\CalculationLinker
+     * и са nullable — калкулация без клиент е напълно валидна.
+     *
+     * @return BelongsTo<Customer, $this>
+     */
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    /** @return BelongsTo<Opportunity, $this> */
+    public function opportunity(): BelongsTo
+    {
+        return $this->belongsTo(Opportunity::class, 'crm_opportunity_id');
+    }
+
+    /** @return array{subject: string, deleted: string, restored: string, pronoun: string} */
+    public static function trashWording(): array
+    {
+        return ['subject' => 'Калкулацията', 'deleted' => 'изтрита', 'restored' => 'възстановена', 'pronoun' => 'нея'];
+    }
+
+    /**
+     * Калкулацията е листо във веригата: редовете ѝ се изтриват заедно с нея,
+     * а офертите пазят собствено копие на описанията и цените, затова нищо
+     * не пречи на изтриването ѝ.
+     *
+     * @return array<int, array{key: string, label: string, count: int}>
+     */
+    public function deletionBlockers(bool $includeTrashed = false): array
+    {
+        return [];
+    }
+
+    /** @return array<int, string> */
+    public function restoreBlockers(): array
+    {
+        return array_values(array_filter([
+            $this->trashedParent($this->customer(), 'клиента'),
+            $this->trashedParent($this->opportunity(), 'запитването'),
+        ]));
+    }
+
     public function scopeSearch(Builder $query, ?string $term): Builder
     {
         $term = trim((string) $term);
@@ -102,7 +151,7 @@ class Calculation extends Model
 
         $last = static::query()
             ->ownedBy($user)
-            ->where('calculation_number', 'like', $prefix.'%')
+            ->withTrashed()->where('calculation_number', 'like', $prefix.'%')
             ->lockForUpdate()
             ->orderByDesc('calculation_number')
             ->value('calculation_number');

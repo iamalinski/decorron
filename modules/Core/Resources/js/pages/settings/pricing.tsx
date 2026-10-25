@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AppLayout from '@/layouts/app-layout';
-import SettingsLayout from '@/layouts/settings/layout';
 import { formatPercent } from '@/lib/money';
 import type { TaxRates } from '@/lib/pricing';
 import { Head, router } from '@inertiajs/react';
@@ -48,11 +47,10 @@ export default function PricingSettings({ settings, taxes, errors }: PricingSett
     const maxMarginPercent = (Number(taxes.max_net_margin) * 100).toFixed(2);
 
     return (
-        <AppLayout title="Настройки" description="Ценообразуване">
+        <AppLayout title="Настройки за ценообразуването" description="Стойности по подразбиране и данъчни ставки">
             <Head title="Настройки" />
 
-            <SettingsLayout>
-            <div className="space-y-4">
+            <div className="mx-auto max-w-2xl space-y-4">
                 <Card>
                     <CardHeader>
                         <CardTitle className="text-base">Стойности по подразбиране</CardTitle>
@@ -142,7 +140,6 @@ export default function PricingSettings({ settings, taxes, errors }: PricingSett
                     </CardContent>
                 </Card>
             </div>
-            </SettingsLayout>
         </AppLayout>
     );
 }

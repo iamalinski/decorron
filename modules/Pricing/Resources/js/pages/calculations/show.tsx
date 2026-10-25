@@ -1,14 +1,4 @@
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-    AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+import { TrashActions, TrashBanner } from '@/components/trash-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,9 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import AppLayout from '@/layouts/app-layout';
 import { formatDate, formatDecimal, formatMoney, formatPercent, formatUnitPrice } from '@/lib/money';
 import type { Calculation } from '@/types/decorron';
-import { Head, Link, router } from '@inertiajs/react';
-import { Copy, CopyPlus, Printer, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { Head, Link } from '@inertiajs/react';
+import { Copy, CopyPlus, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import { FinancialSummary } from '../../components/financial-summary';
 
@@ -29,7 +18,7 @@ interface ShowPageProps {
 export default function ShowCalculation({ calculation: wrapper }: ShowPageProps) {
     const calculation = wrapper.data;
     const currency = calculation.currency;
-    const [deleting, setDeleting] = useState(false);
+    const isTrashed = Boolean(calculation.deleted_at);
 
     const copyPrice = async () => {
         try {
@@ -38,13 +27,6 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
         } catch {
             toast.error('Копирането не е разрешено от браузъра.');
         }
-    };
-
-    const destroy = () => {
-        setDeleting(true);
-        router.delete(route('calculations.destroy', calculation.id), {
-            onFinish: () => setDeleting(false),
-        });
     };
 
     const items = calculation.items ?? [];
@@ -60,15 +42,36 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                             <Printer aria-hidden="true" /> Печат
                         </Link>
                     </Button>
-                    <Button asChild size="sm">
-                        <Link href={route('calculations.duplicate', calculation.id)}>
-                            <CopyPlus aria-hidden="true" /> <span className="hidden sm:inline">Дублирай</span>
-                        </Link>
-                    </Button>
+                    {!isTrashed && (
+                        <Button asChild size="sm">
+                            <Link href={route('calculations.duplicate', calculation.id)}>
+                                <CopyPlus aria-hidden="true" /> <span className="hidden sm:inline">Дублирай</span>
+                            </Link>
+                        </Button>
+                    )}
+                    <TrashActions
+                        deletedAt={calculation.deleted_at}
+                        blockers={calculation.deletion_blockers}
+                        name={`Калкулация ${calculation.calculation_number}`}
+                        subject="калкулацията"
+                        destroyUrl={route('calculations.destroy', calculation.id)}
+                        restoreUrl={route('calculations.restore', calculation.id)}
+                        forceUrl={route('calculations.force-destroy', calculation.id)}
+                        alsoRemoved="Редовете ѝ я следват; офертите пазят собствено копие на цените."
+                    />
                 </>
             }
         >
             <Head title={calculation.service_name} />
+
+            {isTrashed && (
+                <div className="mx-auto mb-4 max-w-6xl">
+                    <TrashBanner>
+                        Тази калкулация е в Кошчето. Тя не се показва в историята и в справките, докато не бъде
+                        върната.
+                    </TrashBanner>
+                </div>
+            )}
 
             <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-5 lg:items-start">
                 <div className="space-y-4 lg:col-span-3">
@@ -80,7 +83,30 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                             <dl className="grid gap-3 sm:grid-cols-2">
                                 <div>
                                     <dt className="text-xs uppercase tracking-wide text-muted-foreground">Клиент</dt>
-                                    <dd className="mt-0.5">{calculation.client_name || '—'}</dd>
+                                    <dd className="mt-0.5">
+                                        {calculation.customer_id ? (
+                                            <Link href={route('crm.customers.show', calculation.customer_id)} className="hover:underline">
+                                                {calculation.customer_name ?? calculation.client_name}
+                                            </Link>
+                                        ) : (
+                                            calculation.client_name || '—'
+                                        )}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">Запитване в CRM</dt>
+                                    <dd className="mt-0.5">
+                                        {calculation.crm_opportunity_id ? (
+                                            <Link
+                                                href={route('crm.opportunities.show', calculation.crm_opportunity_id)}
+                                                className="hover:underline"
+                                            >
+                                                {calculation.opportunity_title ?? 'Виж запитването'}
+                                            </Link>
+                                        ) : (
+                                            <span className="text-muted-foreground">Не е свързана</span>
+                                        )}
+                                    </dd>
                                 </div>
                                 <div>
                                     <dt className="text-xs uppercase tracking-wide text-muted-foreground">Дата</dt>
@@ -181,33 +207,6 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                                 <Printer aria-hidden="true" /> Печат
                             </Link>
                         </Button>
-
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="outline" className="text-destructive hover:text-destructive">
-                                    <Trash2 aria-hidden="true" /> Изтрий
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Да изтрия ли калкулацията?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                        Калкулация {calculation.calculation_number} („{calculation.service_name}“) ще бъде премахната завинаги
-                                        заедно с всички нейни редове.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Отказ</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        onClick={destroy}
-                                        disabled={deleting}
-                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                        Изтрий
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
                     </div>
                 </div>
 

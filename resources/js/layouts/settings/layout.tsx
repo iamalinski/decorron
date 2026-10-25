@@ -4,7 +4,7 @@ import { type NavItem } from '@/types';
 import { Link, usePage } from '@inertiajs/react';
 
 const sidebarNavItems: NavItem[] = [
-    { title: 'Ценообразуване', url: '/settings/pricing', icon: null },
+    { title: 'Данни на бизнеса', url: '/settings/company', icon: null },
     { title: 'Профил', url: '/settings/profile', icon: null },
     { title: 'Парола', url: '/settings/password', icon: null },
     { title: 'Външен вид', url: '/settings/appearance', icon: null },

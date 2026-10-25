@@ -7,6 +7,7 @@ namespace Modules\Pricing\Tests\Feature;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Inertia\Testing\AssertableInertia;
 use Modules\Catalog\Models\Material;
 use Modules\Catalog\Models\Unit;
 use Modules\Core\Models\UserSetting;
@@ -297,7 +298,7 @@ class CalculationTest extends TestCase
     }
 
     #[Test]
-    public function a_calculation_can_be_deleted_with_its_items(): void
+    public function a_calculation_goes_to_the_trash_and_can_be_restored(): void
     {
         $this->actingAs($this->user)->post(route('calculations.store'), $this->payload());
         $calculation = Calculation::query()->firstOrFail();
@@ -306,8 +307,44 @@ class CalculationTest extends TestCase
             ->delete(route('calculations.destroy', $calculation))
             ->assertRedirect(route('calculations.index'));
 
+        $this->assertSoftDeleted('calculations', ['id' => $calculation->id]);
+        $this->assertDatabaseHas('calculation_items', ['calculation_id' => $calculation->id]);
+
+        $this->actingAs($this->user)
+            ->patch(route('calculations.restore', $calculation))
+            ->assertSessionHasNoErrors();
+
+        $this->assertNotSoftDeleted('calculations', ['id' => $calculation->id]);
+    }
+
+    #[Test]
+    public function a_calculation_can_be_purged_from_the_trash_with_its_items(): void
+    {
+        $this->actingAs($this->user)->post(route('calculations.store'), $this->payload());
+        $calculation = Calculation::query()->firstOrFail();
+
+        $this->actingAs($this->user)->delete(route('calculations.destroy', $calculation));
+        $this->actingAs($this->user)->delete(route('calculations.force-destroy', $calculation));
+
         $this->assertDatabaseMissing('calculations', ['id' => $calculation->id]);
         $this->assertDatabaseMissing('calculation_items', ['calculation_id' => $calculation->id]);
+    }
+
+    #[Test]
+    public function a_trashed_calculation_is_hidden_from_the_history(): void
+    {
+        $this->actingAs($this->user)->post(route('calculations.store'), $this->payload());
+        $calculation = Calculation::query()->firstOrFail();
+
+        $this->actingAs($this->user)->delete(route('calculations.destroy', $calculation));
+
+        $this->actingAs($this->user)
+            ->get(route('calculations.index'))
+            ->assertInertia(fn (AssertableInertia $page) => $page->has('calculations.data', 0));
+
+        $this->actingAs($this->user)
+            ->get(route('calculations.index', ['status' => 'deleted']))
+            ->assertInertia(fn (AssertableInertia $page) => $page->has('calculations.data', 1));
     }
 
     #[Test]

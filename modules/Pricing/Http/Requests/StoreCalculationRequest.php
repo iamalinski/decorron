@@ -8,7 +8,9 @@ use Brick\Math\BigDecimal;
 use Brick\Math\RoundingMode;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 use Modules\Pricing\Data\CalculationInput;
 use Modules\Pricing\Data\CalculationItemInput;
 use Modules\Pricing\Services\PricingCalculator;
@@ -47,6 +49,18 @@ class StoreCalculationRequest extends FormRequest
             'final_price_override' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'idempotency_key' => ['nullable', 'string', 'max:64'],
 
+            // Връзка с CRM. И трите полета са по избор — калкулация без клиент
+            // е напълно валидна и не създава нищо в CRM.
+            'customer_id' => [
+                'nullable', 'integer',
+                Rule::exists('customers', 'id')->where('user_id', $userId)->whereNull('deleted_at'),
+            ],
+            'opportunity_id' => [
+                'nullable', 'integer',
+                Rule::exists('crm_opportunities', 'id')->where('user_id', $userId)->whereNull('deleted_at'),
+            ],
+            'create_opportunity' => ['nullable', 'boolean'],
+
             'items' => ['present', 'array', 'max:200'],
             'items.*.material_id' => [
                 'nullable', 'integer',
@@ -63,6 +77,40 @@ class StoreCalculationRequest extends FormRequest
             'items.*.entered_total_cost' => ['nullable', 'required_if:items.*.input_mode,total', 'numeric', 'min:0', 'max:99999999'],
             'items.*.unit_price' => ['nullable', 'required_if:items.*.input_mode,unit', 'numeric', 'min:0', 'max:99999999'],
         ];
+    }
+
+    /**
+     * Допълнителни проверки за връзката с CRM: запитване без клиент няма
+     * смисъл, а чуждо запитване не може да бъде прикачено.
+     */
+    protected function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $customerId = $this->input('customer_id');
+
+            if ($customerId === null && ($this->input('opportunity_id') !== null || $this->boolean('create_opportunity'))) {
+                $validator->errors()->add('customer_id', 'Изберете клиент, за да свържете калкулацията с CRM.');
+
+                return;
+            }
+
+            $opportunityId = $this->input('opportunity_id');
+
+            if ($customerId === null || $opportunityId === null) {
+                return;
+            }
+
+            $belongsToCustomer = DB::table('crm_opportunities')
+                ->where('id', (int) $opportunityId)
+                ->where('user_id', (int) $this->user()->getKey())
+                ->where('customer_id', (int) $customerId)
+                ->whereNull('deleted_at')
+                ->exists();
+
+            if (! $belongsToCustomer) {
+                $validator->errors()->add('opportunity_id', 'Избраното запитване не е на този клиент.');
+            }
+        });
     }
 
     /** Маржът трябва да е под net_factor, иначе цената клони към безкрайност. */

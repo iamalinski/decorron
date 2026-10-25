@@ -3,6 +3,7 @@ import { AppShell } from '@/components/app-shell';
 import { AppSidebar } from '@/components/app-sidebar';
 import { FlashToasts } from '@/components/flash-toasts';
 import { MobileNav } from '@/components/mobile-nav';
+import { SectionNav } from '@/components/section-nav';
 import { Toaster } from '@/components/ui/sonner';
 import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
@@ -30,6 +31,8 @@ export default function AppLayout({ children, title, description, actions, bare 
                     </div>
                     {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
                 </header>
+
+                <SectionNav />
 
                 <main className={cn('flex-1 pb-20 md:pb-8', bare ? '' : 'px-4 py-4 md:px-6 md:py-6')}>{children}</main>
 

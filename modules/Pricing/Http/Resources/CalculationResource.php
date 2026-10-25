@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Pricing\Http\Resources;
 
+use App\Http\Resources\Concerns\ExposesDeletionInfo;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Modules\Pricing\Models\Calculation;
@@ -13,6 +14,8 @@ use Modules\Pricing\Models\Calculation;
  */
 class CalculationResource extends JsonResource
 {
+    use ExposesDeletionInfo;
+
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
@@ -21,7 +24,13 @@ class CalculationResource extends JsonResource
             'calculation_number' => $this->calculation_number,
             'service_name' => $this->service_name,
             'client_name' => $this->client_name,
+            'customer_id' => $this->customer_id,
+            'customer_name' => $this->whenLoaded('customer', fn (): ?string => $this->customer?->name),
+            'crm_opportunity_id' => $this->crm_opportunity_id,
+            'opportunity_title' => $this->whenLoaded('opportunity', fn (): ?string => $this->opportunity?->title),
             'notes' => $this->notes,
+            'deleted_at' => $this->deleted_at?->toIso8601String(),
+            ...$this->deletionInfo(),
             'calculated_at' => $this->calculated_at?->toDateString(),
             'material_cost_total' => (string) $this->material_cost_total,
             'labor_cost' => (string) $this->labor_cost,

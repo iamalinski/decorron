@@ -1,4 +1,5 @@
 import type { InputMode, TaxRates } from '@/lib/pricing';
+import type { Trashable } from '@/types';
 
 export type { InputMode, TaxRates };
 
@@ -43,11 +44,16 @@ export interface CalculationItem {
     position: number;
 }
 
-export interface Calculation {
+export interface Calculation extends Trashable {
     id: number;
     calculation_number: string;
     service_name: string;
     client_name: string | null;
+    /** Връзка към CRM; null, когато калкулацията е направена без клиент. */
+    customer_id: number | null;
+    customer_name?: string | null;
+    crm_opportunity_id: number | null;
+    opportunity_title?: string | null;
     notes: string | null;
     calculated_at: string;
     material_cost_total: string;

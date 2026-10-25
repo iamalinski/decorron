@@ -7,7 +7,8 @@
         "format": "prettier --write resources/",
         "format:check": "prettier --check resources/",
         "lint": "eslint . --fix",
-        "types": "tsc --noEmit"
+        "types": "tsc --noEmit",
+        "check:radix": "node scripts/check-radix-layers.mjs"
     },
     "devDependencies": {
         "@eslint/js": "^9.19.0",
@@ -67,6 +68,11 @@
         "@rollup/rollup-linux-x64-gnu": "4.9.5",
         "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
         "lightningcss-linux-x64-gnu": "^1.29.1"
+    },
+    "overrides": {
+        "@radix-ui/react-dismissable-layer": "1.2.1",
+        "@radix-ui/react-focus-guards": "1.2.0",
+        "@radix-ui/react-focus-scope": "1.3.1"
     },
     "name": "decorron"
 }

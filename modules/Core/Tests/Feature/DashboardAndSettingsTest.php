@@ -31,8 +31,15 @@ class DashboardAndSettingsTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page
                 ->component('core::dashboard')
-                ->where('stats.calculations_count', 0)
-                ->has('recentCalculations.data', 0));
+                ->where('stats.calculations_total', 0)
+                ->where('stats.open_opportunities', 0)
+                ->where('stats.quotes_awaiting', 0)
+                ->where('stats.overdue_tasks', 0)
+                // Няма получени плащания — показва се само договорената стойност.
+                ->where('stats.committed_upcoming_total', '0')
+                ->has('pipeline', 5)
+                ->has('recentCalculations.data', 0)
+                ->has('recentOpportunities.data', 0));
     }
 
     #[Test]

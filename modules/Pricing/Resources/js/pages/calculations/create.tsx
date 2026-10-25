@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils';
 import type { Calculation, CalculationDefaults, Material, Unit } from '@/types/decorron';
 import type { Collection, SharedData } from '@/types';
 import { MaterialFormDialog } from '@modules/Catalog/Resources/js/components/material-form-dialog';
+import { CrmLinkCard, type CrmLinkValue } from '@modules/Crm/Resources/js/components/crm-link-card';
+import type { CrmOptions, Customer, Opportunity } from '@modules/Crm/Resources/js/types';
 import { Head, router, usePage } from '@inertiajs/react';
 import Big from 'big.js';
 import { AlertCircle, Copy, Loader2, Package, Plus, Save, Sparkles } from 'lucide-react';
@@ -27,9 +29,13 @@ import { RoundingDialog } from '../../components/rounding-dialog';
 interface CreatePageProps {
     units: Collection<Unit>;
     materials: Collection<Material>;
+    customers: Collection<Customer>;
+    crmOptions: CrmOptions;
     defaults: CalculationDefaults;
     taxes: TaxRates;
     duplicateOf?: { data: Calculation };
+    presetCustomer?: { data: Customer } | null;
+    presetOpportunity?: { data: Opportunity } | null;
     errors: Record<string, string>;
 }
 
@@ -58,7 +64,17 @@ interface DraftShape {
     savedAt: number;
 }
 
-export default function CreateCalculation({ units, materials, defaults, taxes, duplicateOf }: CreatePageProps) {
+export default function CreateCalculation({
+    units,
+    materials,
+    customers,
+    crmOptions,
+    defaults,
+    taxes,
+    duplicateOf,
+    presetCustomer,
+    presetOpportunity,
+}: CreatePageProps) {
     const page = usePage<SharedData>();
     const currency = page.props.app.currency;
     const errors = page.props.errors as Record<string, string>;
@@ -70,7 +86,14 @@ export default function CreateCalculation({ units, materials, defaults, taxes, d
     const source = duplicateOf?.data;
 
     const [serviceName, setServiceName] = useState(source ? source.service_name : '');
-    const [clientName, setClientName] = useState(source?.client_name ?? '');
+    const [crmLink, setCrmLink] = useState<CrmLinkValue>(() => ({
+        customer_id: presetCustomer?.data.id ?? null,
+        opportunity_id: presetOpportunity?.data.id ?? null,
+        create_opportunity: false,
+        client_name: source?.client_name ?? '',
+    }));
+    const clientName = crmLink.client_name;
+    const setClientName = (value: string) => setCrmLink((current) => ({ ...current, client_name: value }));
     const [notes, setNotes] = useState(source?.notes ?? '');
     const [calculatedAt, setCalculatedAt] = useState(defaults.calculated_at || today());
     const [laborCost, setLaborCost] = useState(source ? source.labor_cost : '');
@@ -274,6 +297,9 @@ export default function CreateCalculation({ units, materials, defaults, taxes, d
             {
                 service_name: serviceName.trim(),
                 client_name: clientName.trim() || null,
+                customer_id: crmLink.customer_id,
+                opportunity_id: crmLink.opportunity_id,
+                create_opportunity: crmLink.create_opportunity,
                 notes: notes.trim() || null,
                 calculated_at: calculatedAt,
                 labor_cost: laborCost || '0',
@@ -390,31 +416,17 @@ export default function CreateCalculation({ units, materials, defaults, taxes, d
                                 <InputError message={errors.service_name} />
                             </div>
 
-                            <div className="grid gap-4 sm:grid-cols-2">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="client_name">Клиент</Label>
-                                    <Input
-                                        id="client_name"
-                                        value={clientName}
-                                        onChange={(e) => setClientName(e.target.value)}
-                                        placeholder="по желание"
-                                        className="h-11"
-                                    />
-                                    <InputError message={errors.client_name} />
-                                </div>
-
-                                <div className="grid gap-2">
-                                    <Label htmlFor="calculated_at">Дата</Label>
-                                    <Input
-                                        id="calculated_at"
-                                        type="date"
-                                        value={calculatedAt}
-                                        onChange={(e) => setCalculatedAt(e.target.value)}
-                                        className="h-11"
-                                        required
-                                    />
-                                    <InputError message={errors.calculated_at} />
-                                </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="calculated_at">Дата</Label>
+                                <Input
+                                    id="calculated_at"
+                                    type="date"
+                                    value={calculatedAt}
+                                    onChange={(e) => setCalculatedAt(e.target.value)}
+                                    className="h-11"
+                                    required
+                                />
+                                <InputError message={errors.calculated_at} />
                             </div>
 
                             <div className="grid gap-2">
@@ -430,6 +442,16 @@ export default function CreateCalculation({ units, materials, defaults, taxes, d
                             </div>
                         </CardContent>
                     </Card>
+
+                    <CrmLinkCard
+                        options={crmOptions}
+                        customers={customers.data}
+                        value={crmLink}
+                        onChange={setCrmLink}
+                        presetCustomer={presetCustomer?.data ?? null}
+                        presetOpportunityId={presetOpportunity?.data.id ?? null}
+                        errors={errors}
+                    />
 
                     <Card>
                         <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">

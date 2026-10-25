@@ -19,7 +19,20 @@ class CalculationPolicy
         return $calculation->isOwnedBy($user);
     }
 
+    /** Преместване в Кошчето. */
     public function delete(User $user, Calculation $calculation): bool
+    {
+        return $calculation->isOwnedBy($user);
+    }
+
+    /** Връщане от Кошчето. */
+    public function restore(User $user, Calculation $calculation): bool
+    {
+        return $calculation->isOwnedBy($user);
+    }
+
+    /** Окончателно изтриване от базата. */
+    public function forceDelete(User $user, Calculation $calculation): bool
     {
         return $calculation->isOwnedBy($user);
     }

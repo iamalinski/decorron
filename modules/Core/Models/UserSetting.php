@@ -27,6 +27,13 @@ class UserSetting extends Model
         'default_net_margin',
         'default_rounding_strategy',
         'default_unit_id',
+        'company_name',
+        'company_phone',
+        'company_email',
+        'company_address',
+        'company_extra',
+        'default_quote_terms',
+        'default_quote_validity_days',
     ];
 
     protected function casts(): array
@@ -40,6 +47,25 @@ class UserSetting extends Model
     public function defaultUnit(): BelongsTo
     {
         return $this->belongsTo(Unit::class, 'default_unit_id');
+    }
+
+    /**
+     * Данните на бизнеса за клиентските документи.
+     *
+     * Когато името не е попълнено, се ползва името на приложението — така
+     * офертата никога не излиза без подател.
+     *
+     * @return array<string, ?string>
+     */
+    public function companyDetails(): array
+    {
+        return [
+            'name' => $this->company_name ?: (string) config('app.name'),
+            'phone' => $this->company_phone,
+            'email' => $this->company_email,
+            'address' => $this->company_address,
+            'extra' => $this->company_extra,
+        ];
     }
 
     /** Настройките на потребителя, създадени при първо обръщение. */
