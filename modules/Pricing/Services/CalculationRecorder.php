@@ -27,11 +27,10 @@ final class CalculationRecorder
      */
     public function record(User $user, array $attributes, CalculationResult $result): Calculation
     {
-        $taxes = $this->calculator->taxes();
         $units = $this->unitsFor($user, $attributes['items']);
         $materials = $this->materialsFor($user, $attributes['items']);
 
-        return DB::transaction(function () use ($user, $attributes, $result, $taxes, $units, $materials): Calculation {
+        return DB::transaction(function () use ($user, $attributes, $result, $units, $materials): Calculation {
             $calculatedAt = Carbon::parse($attributes['calculated_at']);
 
             $calculation = new Calculation([
@@ -45,9 +44,11 @@ final class CalculationRecorder
                 'other_costs' => $result->otherCosts,
                 'total_cost' => $result->totalCost,
                 'target_net_margin' => $result->targetNetMargin,
-                'corporate_tax_rate_snapshot' => (string) $taxes->corporate,
-                'dividend_tax_rate_snapshot' => (string) $taxes->dividend,
-                'vat_rate_snapshot' => (string) $taxes->vat,
+                // Ставките идват от резултата, а не от текущата конфигурация:
+                // така snapshot-ът винаги отговаря на това, с което е смятано.
+                'corporate_tax_rate_snapshot' => $result->corporateRate,
+                'dividend_tax_rate_snapshot' => $result->dividendRate,
+                'vat_rate_snapshot' => $result->vatRate,
                 'profit_before_tax' => $result->profitBeforeTax,
                 'corporate_tax_amount' => $result->corporateTaxAmount,
                 'profit_after_corporate_tax' => $result->profitAfterCorporateTax,
@@ -56,6 +57,7 @@ final class CalculationRecorder
                 'final_price' => $result->finalPrice,
                 'actual_net_margin' => $result->actualNetMargin,
                 'price_was_rounded' => $result->priceWasOverridden,
+                'taxes_applied' => $result->taxesApplied,
                 'currency' => (string) config('pricing.currency', 'EUR'),
             ]);
 

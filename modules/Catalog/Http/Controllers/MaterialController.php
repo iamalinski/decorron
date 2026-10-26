@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Modules\Catalog\Http\Controllers;
 
+use App\Http\Controllers\Concerns\TrashesRecords;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -18,6 +19,8 @@ use Modules\Catalog\Models\Unit;
 
 class MaterialController extends Controller
 {
+    use TrashesRecords;
+
     public function index(Request $request): Response
     {
         $user = $request->user();
@@ -25,7 +28,7 @@ class MaterialController extends Controller
         $filters = [
             'search' => trim((string) $request->query('search', '')),
             'category' => trim((string) $request->query('category', '')),
-            'status' => in_array($request->query('status'), ['active', 'archived', 'all'], true)
+            'status' => in_array($request->query('status'), ['active', 'archived', 'all', 'deleted'], true)
                 ? (string) $request->query('status')
                 : 'active',
         ];
@@ -33,10 +36,14 @@ class MaterialController extends Controller
         $materials = Material::query()
             ->ownedBy($user)
             ->with('unit')
+            // Броят на редовете решава дали изтриването ще е окончателно
+            // или в Кошчето — показва се още в диалога за потвърждение.
+            ->withCount('calculationItems')
             ->search($filters['search'])
             ->when($filters['category'] !== '', fn ($q) => $q->where('category', $filters['category']))
             ->when($filters['status'] === 'active', fn ($q) => $q->where('is_active', true))
             ->when($filters['status'] === 'archived', fn ($q) => $q->where('is_active', false))
+            ->when($filters['status'] === 'deleted', fn ($q) => $q->onlyTrashed())
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString();
@@ -50,6 +57,7 @@ class MaterialController extends Controller
                 ->orderBy('category')
                 ->pluck('category')
                 ->values(),
+            'trashed_count' => Material::query()->ownedBy($user)->onlyTrashed()->count(),
             'filters' => $filters,
         ]);
     }
@@ -79,8 +87,10 @@ class MaterialController extends Controller
     }
 
     /**
-     * Материалите не се изтриват физически, за да не се повредят
-     * историческите калкулации — вместо това се архивират.
+     * Архивирането скрива материала от търсачките, без да го изтрива.
+     *
+     * Остава като отделно действие от изтриването: архивираният материал
+     * още може да бъде избран наново, а изтритият — не.
      */
     public function archive(Request $request, Material $material): RedirectResponse
     {
@@ -94,6 +104,68 @@ class MaterialController extends Controller
                 ? 'Материалът „'.$material->name.'“ е върнат в активните.'
                 : 'Материалът „'.$material->name.'“ е архивиран.',
         );
+    }
+
+    /**
+     * Изтрива материала — окончателно, ако никоя калкулация не го ползва.
+     *
+     * Използваният материал отива в Кошчето, защото редовете на записаните
+     * калкулации още сочат към него. Така каталогът се чисти от грешки, без
+     * историята да губи връзката си с него.
+     */
+    public function destroy(Request $request, Material $material): RedirectResponse
+    {
+        $this->authorize('delete', $material);
+
+        $name = $material->name;
+        $uses = $material->usageCount();
+
+        if ($uses === 0) {
+            $material->forceDelete();
+
+            return back()->with('success', 'Материалът „'.$name.'“ е изтрит.');
+        }
+
+        $material->delete();
+
+        return back()->with(
+            'success',
+            'Материалът „'.$name.'“ е преместен в Кошчето. Използва се в '
+                .$uses.' '.($uses === 1 ? 'ред' : 'реда').' от записани калкулации, затова не се изтрива окончателно.',
+        );
+    }
+
+    public function restore(Request $request, Material $material): RedirectResponse
+    {
+        $this->authorize('restore', $material);
+
+        $error = $this->restoreFromTrash($material);
+
+        if ($error !== null) {
+            return back()->withErrors(['delete' => $error]);
+        }
+
+        return back()->with('success', 'Материалът „'.$material->name.'“ е върнат в каталога.');
+    }
+
+    /**
+     * Окончателно изтриване от Кошчето.
+     *
+     * Връзката на редовете към каталога отпада (material_id става NULL),
+     * но самите редове запазват името, кода и цените си като snapshot.
+     */
+    public function forceDestroy(Request $request, Material $material): RedirectResponse
+    {
+        $this->authorize('forceDelete', $material);
+
+        $name = $material->name;
+        $error = $this->deleteForever($material);
+
+        if ($error !== null) {
+            return back()->withErrors(['delete' => $error]);
+        }
+
+        return back()->with('success', 'Материалът „'.$name.'“ е изтрит окончателно.');
     }
 
     /** Autocomplete за екрана за калкулация. */

@@ -76,6 +76,7 @@ class NavigationTest extends TestCase
             'Кошче — поръчки' => ['/crm/orders?status=deleted'],
             'Кошче — задачи' => ['/crm/tasks?status=deleted'],
             'Кошче — калкулации' => ['/calculations?status=deleted'],
+            'Кошче — материали' => ['/materials?status=deleted'],
         ];
     }
 

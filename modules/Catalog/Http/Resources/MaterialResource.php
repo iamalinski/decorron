@@ -27,6 +27,10 @@ class MaterialResource extends JsonResource
             'default_unit_price' => (string) $this->default_unit_price,
             'description' => $this->description,
             'is_active' => (bool) $this->is_active,
+            'deleted_at' => $this->deleted_at?->toIso8601String(),
+            // В колко реда от записани калкулации участва материалът. Числото
+            // решава дали изтриването ще е окончателно, или в Кошчето.
+            'usage_count' => $this->whenCounted('calculationItems'),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
         ];

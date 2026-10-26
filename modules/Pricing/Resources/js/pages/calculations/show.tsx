@@ -66,10 +66,7 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
 
             {isTrashed && (
                 <div className="mx-auto mb-4 max-w-6xl">
-                    <TrashBanner>
-                        Тази калкулация е в Кошчето. Тя не се показва в историята и в справките, докато не бъде
-                        върната.
-                    </TrashBanner>
+                    <TrashBanner>Тази калкулация е в Кошчето. Тя не се показва в историята и в справките, докато не бъде върната.</TrashBanner>
                 </div>
             )}
 
@@ -82,7 +79,7 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                         <CardContent>
                             <dl className="grid gap-3 sm:grid-cols-2">
                                 <div>
-                                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">Клиент</dt>
+                                    <dt className="text-muted-foreground text-xs tracking-wide uppercase">Клиент</dt>
                                     <dd className="mt-0.5">
                                         {calculation.customer_id ? (
                                             <Link href={route('crm.customers.show', calculation.customer_id)} className="hover:underline">
@@ -94,13 +91,10 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">Запитване в CRM</dt>
+                                    <dt className="text-muted-foreground text-xs tracking-wide uppercase">Запитване в CRM</dt>
                                     <dd className="mt-0.5">
                                         {calculation.crm_opportunity_id ? (
-                                            <Link
-                                                href={route('crm.opportunities.show', calculation.crm_opportunity_id)}
-                                                className="hover:underline"
-                                            >
+                                            <Link href={route('crm.opportunities.show', calculation.crm_opportunity_id)} className="hover:underline">
                                                 {calculation.opportunity_title ?? 'Виж запитването'}
                                             </Link>
                                         ) : (
@@ -109,11 +103,11 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">Дата</dt>
+                                    <dt className="text-muted-foreground text-xs tracking-wide uppercase">Дата</dt>
                                     <dd className="mt-0.5">{formatDate(calculation.calculated_at)}</dd>
                                 </div>
                                 <div>
-                                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">Използван марж</dt>
+                                    <dt className="text-muted-foreground text-xs tracking-wide uppercase">Използван марж</dt>
                                     <dd className="mt-0.5">
                                         {formatPercent(calculation.target_net_margin)}
                                         {calculation.price_was_rounded && (
@@ -124,16 +118,22 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                                     </dd>
                                 </div>
                                 <div>
-                                    <dt className="text-xs uppercase tracking-wide text-muted-foreground">Данъци при записване</dt>
-                                    <dd className="mt-0.5 text-sm text-muted-foreground">
-                                        Корпоративен {formatPercent(calculation.corporate_tax_rate_snapshot, 0)} · дивидент{' '}
-                                        {formatPercent(calculation.dividend_tax_rate_snapshot, 0)} · ДДС{' '}
-                                        {formatPercent(calculation.vat_rate_snapshot, 0)}
+                                    <dt className="text-muted-foreground text-xs tracking-wide uppercase">Данъци при записване</dt>
+                                    <dd className="text-muted-foreground mt-0.5 text-sm">
+                                        {calculation.taxes_applied ? (
+                                            <>
+                                                Корпоративен {formatPercent(calculation.corporate_tax_rate_snapshot, 0)} · дивидент{' '}
+                                                {formatPercent(calculation.dividend_tax_rate_snapshot, 0)} · ДДС{' '}
+                                                {formatPercent(calculation.vat_rate_snapshot, 0)}
+                                            </>
+                                        ) : (
+                                            'Не се начисляват — цената е изчислена без данъци'
+                                        )}
                                     </dd>
                                 </div>
                                 {calculation.notes && (
                                     <div className="sm:col-span-2">
-                                        <dt className="text-xs uppercase tracking-wide text-muted-foreground">Бележка</dt>
+                                        <dt className="text-muted-foreground text-xs tracking-wide uppercase">Бележка</dt>
                                         <dd className="mt-0.5 whitespace-pre-wrap">{calculation.notes}</dd>
                                     </div>
                                 )}
@@ -147,7 +147,7 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                         </CardHeader>
                         <CardContent>
                             {items.length === 0 ? (
-                                <p className="py-4 text-center text-sm text-muted-foreground">Калкулацията е без материали.</p>
+                                <p className="text-muted-foreground py-4 text-center text-sm">Калкулацията е без материали.</p>
                             ) : (
                                 <>
                                     <ul className="grid gap-3 md:hidden">
@@ -157,7 +157,7 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                                                     <p className="min-w-0 truncate font-medium">{item.material_name}</p>
                                                     <p className="shrink-0 font-semibold tabular-nums">{formatMoney(item.line_total, currency)}</p>
                                                 </div>
-                                                <p className="mt-1 text-sm text-muted-foreground">
+                                                <p className="text-muted-foreground mt-1 text-sm">
                                                     {formatDecimal(item.quantity, 2)} {item.unit_symbol} ×{' '}
                                                     {formatUnitPrice(item.unit_price, currency)}
                                                 </p>
@@ -181,7 +181,7 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                                                     <TableRow key={item.id}>
                                                         <TableCell>
                                                             <span className="font-medium">{item.material_name}</span>
-                                                            {item.sku && <span className="ml-2 text-xs text-muted-foreground">{item.sku}</span>}
+                                                            {item.sku && <span className="text-muted-foreground ml-2 text-xs">{item.sku}</span>}
                                                         </TableCell>
                                                         <TableCell className="text-right tabular-nums">{formatDecimal(item.quantity, 2)}</TableCell>
                                                         <TableCell className="text-muted-foreground">{item.unit_symbol}</TableCell>
@@ -218,6 +218,7 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                         <CardContent>
                             <FinancialSummary
                                 currency={currency}
+                                taxesApplied={calculation.taxes_applied}
                                 values={{
                                     materialCostTotal: calculation.material_cost_total,
                                     laborCost: calculation.labor_cost,
@@ -240,9 +241,9 @@ export default function ShowCalculation({ calculation: wrapper }: ShowPageProps)
                                     </Button>
                                 }
                             />
-                            <p className="mt-4 text-xs text-muted-foreground">
-                                Показаните стойности са записани към момента на изчислението. Последващи промени в каталога или в настройките не
-                                ги променят.
+                            <p className="text-muted-foreground mt-4 text-xs">
+                                Показаните стойности са записани към момента на изчислението. Последващи промени в каталога или в настройките не ги
+                                променят.
                             </p>
                         </CardContent>
                     </Card>

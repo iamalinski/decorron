@@ -42,6 +42,7 @@ class CalculationFactory extends Factory
             'final_price' => '150.33',
             'actual_net_margin' => '0.399987',
             'price_was_rounded' => false,
+            'taxes_applied' => true,
             'currency' => 'EUR',
         ];
     }

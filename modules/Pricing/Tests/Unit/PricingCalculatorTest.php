@@ -260,4 +260,79 @@ class PricingCalculatorTest extends TestCase
         $this->assertEqualsWithDelta($sum, (float) $result->materialCostTotal, 0.001);
         $this->assertSame('18.50', $result->materialCostTotal);
     }
+
+    /**
+     * Същият сценарий без данъци: net_factor е 1, затова цената е просто
+     * разходи / (1 − марж) и цялата печалба остава чиста.
+     */
+    #[Test]
+    public function it_prices_without_taxes_when_they_are_switched_off(): void
+    {
+        $result = $this->calculator()->calculate(new CalculationInput(
+            items: [new CalculationItemInput(quantity: '1', inputMode: 'total', enteredTotalCost: '40')],
+            laborCost: '40',
+            otherCosts: '0',
+            targetNetMargin: '0.40',
+            taxesApplied: false,
+        ));
+
+        $this->assertSame('80.00', $result->totalCost);
+        $this->assertSame('133.33', $result->finalPrice);
+        $this->assertSame('0.00', $result->corporateTaxAmount);
+        $this->assertSame('0.00', $result->dividendTaxAmount);
+        $this->assertSame('53.33', $result->profitBeforeTax);
+        $this->assertSame('53.33', $result->netProfit);
+        $this->assertSame('1.000000', $result->netFactor);
+        $this->assertFalse($result->taxesApplied);
+    }
+
+    /** Ставките в резултата описват какво наистина е начислено. */
+    #[Test]
+    public function the_result_carries_the_rates_it_was_computed_with(): void
+    {
+        $withTaxes = $this->calculator()->calculate(new CalculationInput(
+            items: [new CalculationItemInput(quantity: '1', inputMode: 'total', enteredTotalCost: '80')],
+            laborCost: '0',
+            otherCosts: '0',
+            targetNetMargin: '0.40',
+        ));
+
+        $this->assertSame('0.10', $withTaxes->corporateRate);
+        $this->assertSame('0.05', $withTaxes->dividendRate);
+        $this->assertTrue($withTaxes->taxesApplied);
+
+        $withoutTaxes = $this->calculator()->calculate(new CalculationInput(
+            items: [new CalculationItemInput(quantity: '1', inputMode: 'total', enteredTotalCost: '80')],
+            laborCost: '0',
+            otherCosts: '0',
+            targetNetMargin: '0.40',
+            taxesApplied: false,
+        ));
+
+        $this->assertSame('0', $withoutTaxes->corporateRate);
+        $this->assertSame('0', $withoutTaxes->dividendRate);
+        $this->assertSame('0', $withoutTaxes->vatRate);
+    }
+
+    /** Без данъци таванът на маржа се вдига от 85,5% на 100%. */
+    #[Test]
+    public function switching_the_taxes_off_raises_the_margin_ceiling(): void
+    {
+        $input = fn (bool $taxes): CalculationInput => new CalculationInput(
+            items: [new CalculationItemInput(quantity: '1', inputMode: 'total', enteredTotalCost: '80')],
+            laborCost: '0',
+            otherCosts: '0',
+            targetNetMargin: '0.90',
+            taxesApplied: $taxes,
+        );
+
+        $this->assertSame('1.000000', $this->calculator()->maximumNetMargin(false));
+        $this->assertSame('0.855000', $this->calculator()->maximumNetMargin());
+
+        $result = $this->calculator()->calculate($input(false));
+        $this->assertSame('800.00', $result->finalPrice);
+
+        $this->expectException(InvalidCalculationException::class);
+        $this->calculator()->calculate($input(true));
+    }
 }

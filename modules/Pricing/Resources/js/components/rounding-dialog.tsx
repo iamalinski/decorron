@@ -66,16 +66,16 @@ export function RoundingDialog({
                                     onOpenChange(false);
                                 }}
                                 disabled={!option.valid}
-                                className="flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors hover:bg-accent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                                className="hover:bg-accent focus-visible:ring-ring flex w-full items-center justify-between gap-3 rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:outline-hidden disabled:opacity-50"
                             >
                                 <div className="min-w-0">
-                                    <p className="text-sm text-muted-foreground">{option.label}</p>
+                                    <p className="text-muted-foreground text-sm">{option.label}</p>
                                     <p className="text-lg font-semibold tabular-nums">{formatMoney(option.price, currency)}</p>
                                 </div>
-                                <div className="shrink-0 text-right text-xs text-muted-foreground">
+                                <div className="text-muted-foreground shrink-0 text-right text-xs">
                                     <p className="flex items-center justify-end gap-1">
                                         {formatMoney(baseNetProfit, currency)} <ArrowRight className="size-3" aria-hidden="true" />
-                                        <span className="font-medium text-foreground">{formatMoney(option.netProfit, currency)}</span>
+                                        <span className="text-foreground font-medium">{formatMoney(option.netProfit, currency)}</span>
                                     </p>
                                     <p>марж {formatPercent(option.margin)}</p>
                                 </div>

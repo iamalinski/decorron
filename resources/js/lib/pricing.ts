@@ -146,7 +146,11 @@ export function computeBreakdown(input: BreakdownInput): BreakdownResult {
     if (margin.gte(netFactor)) {
         return fail(
             `Чистият марж трябва да е под ${netFactor.times(100).round(2, Big.roundDown).toString()}%. ` +
-                'След данъците по-висок чист марж е математически невъзможен.',
+                // Без данъци net_factor е 1 и таванът идва само от това, че
+                // маржът е дял от крайната цена.
+                (netFactor.eq(1)
+                    ? 'Маржът е дял от крайната цена, затова не може да я достигне.'
+                    : 'След данъците по-висок чист марж е математически невъзможен.'),
         );
     }
 

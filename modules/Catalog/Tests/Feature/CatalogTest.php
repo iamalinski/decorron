@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\Catalog\Database\Seeders\CatalogSeeder;
 use Modules\Catalog\Models\Material;
 use Modules\Catalog\Models\Unit;
+use Modules\Pricing\Models\Calculation;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
@@ -209,5 +210,143 @@ class CatalogTest extends TestCase
         $this->actingAs($this->user)
             ->get(route('materials.index', ['status' => 'all']))
             ->assertInertia(fn ($page) => $page->has('materials.data', 2));
+    }
+
+    /** Материал, който участва в записана калкулация. */
+    private function usedMaterial(): Material
+    {
+        $unit = Unit::factory()->create(['user_id' => $this->user->id]);
+        $material = Material::factory()->create(['user_id' => $this->user->id, 'unit_id' => $unit->id]);
+
+        Calculation::factory()
+            ->create(['user_id' => $this->user->id])
+            ->items()
+            ->create([
+                'material_id' => $material->id,
+                'unit_id' => $unit->id,
+                'material_name_snapshot' => $material->name,
+                'sku_snapshot' => $material->sku,
+                'unit_name_snapshot' => $unit->name,
+                'unit_symbol_snapshot' => $unit->symbol,
+                'quantity' => '2',
+                'input_mode' => 'unit',
+                'entered_total_cost' => null,
+                'unit_price' => '5.000000',
+                'line_total' => '10.00',
+                'position' => 0,
+            ]);
+
+        return $material;
+    }
+
+    #[Test]
+    public function an_unused_material_is_deleted_outright(): void
+    {
+        $unit = Unit::factory()->create(['user_id' => $this->user->id]);
+        $material = Material::factory()->create(['user_id' => $this->user->id, 'unit_id' => $unit->id]);
+
+        $this->actingAs($this->user)
+            ->delete(route('materials.destroy', $material))
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('materials', ['id' => $material->id]);
+    }
+
+    #[Test]
+    public function a_material_used_in_a_calculation_goes_to_the_trash(): void
+    {
+        $material = $this->usedMaterial();
+
+        $this->actingAs($this->user)
+            ->delete(route('materials.destroy', $material))
+            ->assertRedirect();
+
+        $this->assertSoftDeleted('materials', ['id' => $material->id]);
+
+        // Редът на калкулацията остава непроменен и още сочи към материала.
+        $this->assertDatabaseHas('calculation_items', [
+            'material_id' => $material->id,
+            'line_total' => '10.00',
+        ]);
+    }
+
+    #[Test]
+    public function a_trashed_material_disappears_from_the_catalog_and_the_search(): void
+    {
+        $material = $this->usedMaterial();
+        $material->delete();
+
+        $this->actingAs($this->user)
+            ->get(route('materials.index', ['status' => 'all']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->component('catalog::materials/index')->has('materials.data', 0));
+
+        $this->actingAs($this->user)
+            ->getJson(route('materials.search', ['q' => $material->name]))
+            ->assertOk()
+            ->assertJsonCount(0, 'materials');
+
+        $this->actingAs($this->user)
+            ->get(route('materials.index', ['status' => 'deleted']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->has('materials.data', 1)->where('trashed_count', 1));
+    }
+
+    #[Test]
+    public function a_trashed_material_can_be_restored(): void
+    {
+        $material = $this->usedMaterial();
+        $material->delete();
+
+        $this->actingAs($this->user)
+            ->patch(route('materials.restore', $material))
+            ->assertRedirect();
+
+        $this->assertNotSoftDeleted('materials', ['id' => $material->id]);
+    }
+
+    #[Test]
+    public function a_trashed_material_can_be_deleted_forever_without_touching_the_calculation(): void
+    {
+        $material = $this->usedMaterial();
+        $material->delete();
+
+        $this->actingAs($this->user)
+            ->delete(route('materials.force-destroy', $material))
+            ->assertRedirect();
+
+        $this->assertDatabaseMissing('materials', ['id' => $material->id]);
+
+        // Редът оцелява: връзката отпада, но стойностите му остават.
+        $this->assertDatabaseHas('calculation_items', [
+            'material_id' => null,
+            'material_name_snapshot' => $material->name,
+            'line_total' => '10.00',
+        ]);
+    }
+
+    #[Test]
+    public function a_user_cannot_delete_another_users_material(): void
+    {
+        $unit = Unit::factory()->create(['user_id' => $this->user->id]);
+        $material = Material::factory()->create(['user_id' => $this->user->id, 'unit_id' => $unit->id]);
+
+        $intruder = User::factory()->create();
+
+        $this->actingAs($intruder)->delete(route('materials.destroy', $material))->assertForbidden();
+        $this->actingAs($intruder)->delete(route('materials.force-destroy', $material))->assertForbidden();
+
+        $this->assertDatabaseHas('materials', ['id' => $material->id]);
+    }
+
+    #[Test]
+    public function the_catalog_list_reports_how_many_rows_use_each_material(): void
+    {
+        $material = $this->usedMaterial();
+
+        $this->actingAs($this->user)
+            ->get(route('materials.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page->where('materials.data.0.id', $material->id)->where('materials.data.0.usage_count', 1));
     }
 }

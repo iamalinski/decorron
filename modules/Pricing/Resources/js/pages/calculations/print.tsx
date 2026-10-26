@@ -50,7 +50,7 @@ export default function PrintCalculation({ calculation: wrapper, company }: Prin
 
                 <header className="flex items-start justify-between gap-4 border-b border-neutral-300 pb-4">
                     <div>
-                        <p className="text-sm font-semibold uppercase tracking-wide">{company.name}</p>
+                        <p className="text-sm font-semibold tracking-wide uppercase">{company.name}</p>
                         <h1 className="mt-1 text-2xl font-bold">{calculation.service_name}</h1>
                         {calculation.client_name && <p className="text-sm">Клиент: {calculation.client_name}</p>}
                     </div>
@@ -62,7 +62,7 @@ export default function PrintCalculation({ calculation: wrapper, company }: Prin
 
                 {items.length > 0 && (
                     <section className="mt-6">
-                        <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide">Материали</h2>
+                        <h2 className="mb-2 text-sm font-semibold tracking-wide uppercase">Материали</h2>
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-neutral-300 text-left">
@@ -89,21 +89,25 @@ export default function PrintCalculation({ calculation: wrapper, company }: Prin
                 )}
 
                 <section className="mt-6">
-                    <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide">Разходи и печалба</h2>
+                    <h2 className="mb-2 text-sm font-semibold tracking-wide uppercase">Разходи и печалба</h2>
                     <dl className="text-sm">
                         <Row label="Материали" value={formatMoney(calculation.material_cost_total, currency)} />
                         <Row label="Труд" value={formatMoney(calculation.labor_cost, currency)} />
                         <Row label="Други разходи" value={formatMoney(calculation.other_costs, currency)} />
                         <Row label="Общо разходи" value={formatMoney(calculation.total_cost, currency)} bold />
                         <Row label="Печалба преди данъци" value={formatMoney(calculation.profit_before_tax, currency)} />
-                        <Row
-                            label={`Корпоративен данък (${formatPercent(calculation.corporate_tax_rate_snapshot, 0)})`}
-                            value={`− ${formatMoney(calculation.corporate_tax_amount, currency)}`}
-                        />
-                        <Row
-                            label={`Данък дивидент (${formatPercent(calculation.dividend_tax_rate_snapshot, 0)})`}
-                            value={`− ${formatMoney(calculation.dividend_tax_amount, currency)}`}
-                        />
+                        {calculation.taxes_applied && (
+                            <>
+                                <Row
+                                    label={`Корпоративен данък (${formatPercent(calculation.corporate_tax_rate_snapshot, 0)})`}
+                                    value={`− ${formatMoney(calculation.corporate_tax_amount, currency)}`}
+                                />
+                                <Row
+                                    label={`Данък дивидент (${formatPercent(calculation.dividend_tax_rate_snapshot, 0)})`}
+                                    value={`− ${formatMoney(calculation.dividend_tax_amount, currency)}`}
+                                />
+                            </>
+                        )}
                         <Row label="Чиста печалба" value={formatMoney(calculation.net_profit, currency)} bold />
                         <Row label="Чист марж" value={formatPercent(calculation.actual_net_margin)} />
                     </dl>
@@ -115,13 +119,16 @@ export default function PrintCalculation({ calculation: wrapper, company }: Prin
                         <p className="text-2xl font-bold tabular-nums">{formatMoney(calculation.final_price, currency)}</p>
                     </div>
                     <p className="mt-1 text-xs">
-                        Цените са в {currency}. ДДС не се начислява ({formatPercent(calculation.vat_rate_snapshot, 0)}).
+                        Цените са в {currency}.{' '}
+                        {calculation.taxes_applied
+                            ? `ДДС не се начислява (${formatPercent(calculation.vat_rate_snapshot, 0)}).`
+                            : 'Цената е изчислена без корпоративен данък, данък дивидент и ДДС.'}
                     </p>
                 </section>
 
                 {calculation.notes && (
                     <section className="mt-6 text-sm">
-                        <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide">Бележка</h2>
+                        <h2 className="mb-1 text-sm font-semibold tracking-wide uppercase">Бележка</h2>
                         <p className="whitespace-pre-wrap">{calculation.notes}</p>
                     </section>
                 )}

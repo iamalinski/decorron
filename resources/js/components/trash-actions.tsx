@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import type { DeletionBlocker } from '@/types';
 import { Link, router } from '@inertiajs/react';
 import { ArchiveRestore, ArrowRight, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 
 type Mode = 'delete' | 'blocked' | 'restore' | 'force';
@@ -36,6 +36,15 @@ export interface TrashActionsProps {
     forceUrl: string;
     /** Какво още ще изчезне заедно със записа — показва се в потвърждението. */
     alsoRemoved?: string;
+    /**
+     * Текстове за потвърждението, когато изтриването не е обикновено
+     * преместване в Кошчето — например материал, който не се ползва никъде
+     * и затова изчезва веднага.
+     */
+    confirmTitle?: string;
+    confirmDescription?: ReactNode;
+    forceDescription?: ReactNode;
+    restoreDescription?: ReactNode;
     /** Компактен вид за редовете в списък. */
     compact?: boolean;
 }
@@ -58,6 +67,10 @@ export function TrashActions({
     restoreUrl,
     forceUrl,
     alsoRemoved,
+    confirmTitle,
+    confirmDescription,
+    forceDescription,
+    restoreDescription,
     compact = false,
 }: TrashActionsProps) {
     const [mode, setMode] = useState<Mode | null>(null);
@@ -98,7 +111,9 @@ export function TrashActions({
                     <AlertDialogContent>
                         <AlertDialogHeader>
                             <AlertDialogTitle>Връщане от Кошчето?</AlertDialogTitle>
-                            <AlertDialogDescription>{name} ще се появи отново в списъците, таблото и календара.</AlertDialogDescription>
+                            <AlertDialogDescription>
+                                {restoreDescription ?? <>{name} ще се появи отново в списъците, таблото и календара.</>}
+                            </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Отказ</AlertDialogCancel>
@@ -112,7 +127,11 @@ export function TrashActions({
                         <AlertDialogHeader>
                             <AlertDialogTitle>Окончателно изтриване?</AlertDialogTitle>
                             <AlertDialogDescription>
-                                {name} ще изчезне завинаги от базата данни. {alsoRemoved} Връщане след това няма да е възможно.
+                                {forceDescription ?? (
+                                    <>
+                                        {name} ще изчезне завинаги от базата данни. {alsoRemoved} Връщане след това няма да е възможно.
+                                    </>
+                                )}
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -170,10 +189,14 @@ export function TrashActions({
             <AlertDialog open={mode === 'delete'} onOpenChange={(open) => !open && setMode(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Преместване в Кошчето?</AlertDialogTitle>
+                        <AlertDialogTitle>{confirmTitle ?? 'Преместване в Кошчето?'}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {name} ще изчезне от списъците, таблото и календара. {alsoRemoved} Записът остава в Кошчето и може да бъде върнат или
-                            изтрит окончателно.
+                            {confirmDescription ?? (
+                                <>
+                                    {name} ще изчезне от списъците, таблото и календара. {alsoRemoved} Записът остава в Кошчето и може да бъде върнат
+                                    или изтрит окончателно.
+                                </>
+                            )}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

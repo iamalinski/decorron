@@ -19,5 +19,7 @@ final readonly class CalculationInput
         public string $otherCosts,
         public string $targetNetMargin,
         public ?string $finalPriceOverride = null,
+        /** Дали в цената да се заделят пари за корпоративен данък и дивидент. */
+        public bool $taxesApplied = true,
     ) {}
 }

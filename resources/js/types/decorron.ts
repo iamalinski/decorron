@@ -24,6 +24,10 @@ export interface Material {
     default_unit_price: string;
     description: string | null;
     is_active: boolean;
+    /** Попълва се само когато материалът е в Кошчето. */
+    deleted_at?: string | null;
+    /** В колко реда от записани калкулации участва — само в списъка с материали. */
+    usage_count?: number;
     created_at?: string;
     updated_at?: string;
 }
@@ -72,6 +76,8 @@ export interface Calculation extends Trashable {
     final_price: string;
     actual_net_margin: string;
     price_was_rounded: boolean;
+    /** Заделя ли цената пари за корпоративен данък и дивидент. */
+    taxes_applied: boolean;
     currency: string;
     created_at?: string;
     items?: CalculationItem[];

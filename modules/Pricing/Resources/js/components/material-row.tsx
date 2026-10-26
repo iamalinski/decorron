@@ -57,7 +57,7 @@ export function MaterialRow({
     };
 
     return (
-        <li className="rounded-lg border bg-card p-3 shadow-xs">
+        <li className="bg-card rounded-lg border p-3 shadow-xs">
             <div className="flex items-start gap-2">
                 <div className="min-w-0 flex-1">
                     <Label htmlFor={rowId} className="sr-only">
@@ -76,7 +76,7 @@ export function MaterialRow({
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-11 w-11 shrink-0 text-muted-foreground hover:text-destructive"
+                    className="text-muted-foreground hover:text-destructive h-11 w-11 shrink-0"
                     onClick={onRemove}
                     disabled={!canRemove}
                     aria-label={`Премахни ред ${index + 1}`}
@@ -93,10 +93,10 @@ export function MaterialRow({
                     className="grid w-full grid-cols-2 rounded-md border p-0.5"
                     aria-label="Как въвеждате цената"
                 >
-                    <ToggleGroupItem value="total" className="h-9 rounded-sm text-xs data-[state=on]:bg-accent">
+                    <ToggleGroupItem value="total" className="data-[state=on]:bg-accent h-9 rounded-sm text-xs">
                         Обща стойност
                     </ToggleGroupItem>
-                    <ToggleGroupItem value="unit" className="h-9 rounded-sm text-xs data-[state=on]:bg-accent">
+                    <ToggleGroupItem value="unit" className="data-[state=on]:bg-accent h-9 rounded-sm text-xs">
                         Единична цена
                     </ToggleGroupItem>
                 </ToggleGroup>
@@ -104,7 +104,7 @@ export function MaterialRow({
 
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <div className="grid gap-1.5">
-                    <Label htmlFor={`${rowId}-qty`} className="text-xs text-muted-foreground">
+                    <Label htmlFor={`${rowId}-qty`} className="text-muted-foreground text-xs">
                         Количество
                     </Label>
                     <NumericInput
@@ -117,7 +117,7 @@ export function MaterialRow({
                 </div>
 
                 <div className="grid gap-1.5">
-                    <Label htmlFor={`${rowId}-unit`} className="text-xs text-muted-foreground">
+                    <Label htmlFor={`${rowId}-unit`} className="text-muted-foreground text-xs">
                         Мярка
                     </Label>
                     <Select value={line.unit_id} onValueChange={(value) => onChange({ unit_id: value })}>
@@ -135,7 +135,7 @@ export function MaterialRow({
                 </div>
 
                 <div className="col-span-2 grid gap-1.5">
-                    <Label htmlFor={`${rowId}-price`} className="text-xs text-muted-foreground">
+                    <Label htmlFor={`${rowId}-price`} className="text-muted-foreground text-xs">
                         {isTotalMode ? 'Обща стойност' : `Цена за 1 ${unit?.symbol ?? ''}`.trim()}
                     </Label>
                     <NumericInput
@@ -151,12 +151,12 @@ export function MaterialRow({
 
             <dl className="mt-3 flex items-center justify-between gap-3 border-t pt-2 text-sm">
                 <div className="flex items-baseline gap-1.5">
-                    <dt className="text-xs text-muted-foreground">{isTotalMode ? 'Единична цена' : 'Обща стойност'}</dt>
+                    <dt className="text-muted-foreground text-xs">{isTotalMode ? 'Единична цена' : 'Обща стойност'}</dt>
                     <dd className="font-medium tabular-nums">
                         {isTotalMode ? (
                             <>
                                 {formatUnitPrice(computed.unitPrice, currency)}
-                                <span className="text-xs text-muted-foreground">/{unit?.symbol ?? ''}</span>
+                                <span className="text-muted-foreground text-xs">/{unit?.symbol ?? ''}</span>
                             </>
                         ) : (
                             formatMoney(computed.lineTotal, currency)
@@ -164,7 +164,7 @@ export function MaterialRow({
                     </dd>
                 </div>
                 <div className="flex items-baseline gap-1.5">
-                    <dt className="text-xs text-muted-foreground">Ред</dt>
+                    <dt className="text-muted-foreground text-xs">Ред</dt>
                     <dd className="font-semibold tabular-nums">{formatMoney(computed.lineTotal, currency)}</dd>
                 </div>
             </dl>

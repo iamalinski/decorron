@@ -4,6 +4,7 @@ import { NumericInput } from '@/components/numeric-input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,12 +12,12 @@ import AppLayout from '@/layouts/app-layout';
 import { formatMoney, formatPercent, today } from '@/lib/money';
 import { computeBreakdown, computeLine, type BreakdownInput, type LineInput, type TaxRates } from '@/lib/pricing';
 import { cn } from '@/lib/utils';
-import type { Calculation, CalculationDefaults, Material, Unit } from '@/types/decorron';
 import type { Collection, SharedData } from '@/types';
+import type { Calculation, CalculationDefaults, Material, Unit } from '@/types/decorron';
+import { Head, router, usePage } from '@inertiajs/react';
 import { MaterialFormDialog } from '@modules/Catalog/Resources/js/components/material-form-dialog';
 import { CrmLinkCard, type CrmLinkValue } from '@modules/Crm/Resources/js/components/crm-link-card';
 import type { CrmOptions, Customer, Opportunity } from '@modules/Crm/Resources/js/types';
-import { Head, router, usePage } from '@inertiajs/react';
 import Big from 'big.js';
 import { AlertCircle, Copy, Loader2, Package, Plus, Save, Sparkles } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -43,6 +44,18 @@ const DRAFT_KEY = 'decorron:calculation-draft:v1';
 
 const MARGIN_PRESETS = ['30', '35', '40', '50'];
 
+/**
+ * Ставките при изключени данъци.
+ *
+ * Формулата не се променя — само net_factor става 1, затова в цената не
+ * се заделя нищо за корпоративен данък и дивидент. Същото прави и
+ * backend-ът чрез TaxRates::none().
+ */
+const NO_TAXES: TaxRates = { corporate: '0', dividend: '0', vat: '0', net_factor: '1', max_net_margin: '1' };
+
+/** Полетата на реда, които влизат в сумата на материалите. */
+const COST_FIELDS: (keyof LineState)[] = ['quantity', 'unit_price', 'entered_total_cost', 'input_mode'];
+
 function toLineInput(line: LineState): LineInput {
     return {
         quantity: line.quantity,
@@ -60,6 +73,7 @@ interface DraftShape {
     laborCost: string;
     otherCosts: string;
     marginPercent: string;
+    taxesApplied: boolean;
     lines: LineState[];
     savedAt: number;
 }
@@ -120,6 +134,7 @@ export default function CreateCalculation({
         return [newLine(fallbackUnitId)];
     });
 
+    const [taxesApplied, setTaxesApplied] = useState(source?.taxes_applied ?? true);
     const [priceOverride, setPriceOverride] = useState<string | null>(null);
     const [roundingOpen, setRoundingOpen] = useState(false);
     const [materialDialogOpen, setMaterialDialogOpen] = useState(false);
@@ -138,13 +153,14 @@ export default function CreateCalculation({
      * същото условие важи и при записване, за да съвпада показаната цена
      * с тази, която backend-ът ще изчисли.
      */
-    const usableLines = useMemo(
-        () => lines.filter((line) => line.material_name.trim() !== '' && Number(line.quantity) > 0),
-        [lines],
-    );
+    const usableLines = useMemo(() => lines.filter((line) => line.material_name.trim() !== '' && Number(line.quantity) > 0), [lines]);
 
     // Всеки ред се изчислява отделно, за да покаже собствената си сума.
     const rowResults = useMemo(() => lines.map((line) => computeLine(toLineInput(line))), [lines]);
+
+    // Изключените данъци се представят като нулеви ставки — така и
+    // разбивката, и таванът на маржа се получават от същата формула.
+    const effectiveTaxes = taxesApplied ? taxes : NO_TAXES;
 
     const breakdownInput: BreakdownInput = useMemo(
         () => ({
@@ -152,9 +168,9 @@ export default function CreateCalculation({
             laborCost: laborCost || '0',
             otherCosts: otherCosts || '0',
             marginPercent: marginPercent || '0',
-            taxes,
+            taxes: effectiveTaxes,
         }),
-        [usableLines, laborCost, otherCosts, marginPercent, taxes],
+        [usableLines, laborCost, otherCosts, marginPercent, effectiveTaxes],
     );
 
     const base = useMemo(() => computeBreakdown(breakdownInput), [breakdownInput]);
@@ -198,7 +214,18 @@ export default function CreateCalculation({
         }
 
         const timer = window.setTimeout(() => {
-            const draft: DraftShape = { serviceName, clientName, notes, calculatedAt, laborCost, otherCosts, marginPercent, lines, savedAt: Date.now() };
+            const draft: DraftShape = {
+                serviceName,
+                clientName,
+                notes,
+                calculatedAt,
+                laborCost,
+                otherCosts,
+                marginPercent,
+                taxesApplied,
+                lines,
+                savedAt: Date.now(),
+            };
 
             try {
                 localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
@@ -208,7 +235,7 @@ export default function CreateCalculation({
         }, 600);
 
         return () => window.clearTimeout(timer);
-    }, [serviceName, clientName, notes, calculatedAt, laborCost, otherCosts, marginPercent, lines, source]);
+    }, [serviceName, clientName, notes, calculatedAt, laborCost, otherCosts, marginPercent, taxesApplied, lines, source]);
 
     const restoreDraft = () => {
         if (!draftOffer) {
@@ -222,6 +249,7 @@ export default function CreateCalculation({
         setLaborCost(draftOffer.laborCost);
         setOtherCosts(draftOffer.otherCosts);
         setMarginPercent(draftOffer.marginPercent);
+        setTaxesApplied(draftOffer.taxesApplied ?? true);
         setLines(draftOffer.lines.length ? draftOffer.lines : [newLine(fallbackUnitId)]);
         setDraftOffer(null);
         setDraftRestored(true);
@@ -237,6 +265,13 @@ export default function CreateCalculation({
 
     const updateLine = useCallback((key: string, patch: Partial<LineState>) => {
         setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)));
+
+        // Ръчно закръглената цена важи за разходите, при които е избрана.
+        // Ако остане след промяна на цена или количество, обобщението показва
+        // стара крайна цена — а когато разходите я надминат, спира да смята.
+        if (COST_FIELDS.some((field) => field in patch)) {
+            setPriceOverride(null);
+        }
     }, []);
 
     const addLine = () => {
@@ -250,6 +285,7 @@ export default function CreateCalculation({
 
     const removeLine = (key: string) => {
         setLines((current) => (current.length === 1 ? [newLine(fallbackUnitId)] : current.filter((line) => line.key !== key)));
+        setPriceOverride(null);
     };
 
     const openMaterialDialog = (lineKey: string, name: string) => {
@@ -262,6 +298,8 @@ export default function CreateCalculation({
         setCatalog((current) => [material, ...current.filter((item) => item.id !== material.id)]);
 
         if (pendingLineKey) {
+            const line = lines.find((item) => item.key === pendingLineKey);
+
             updateLine(pendingLineKey, {
                 material_id: material.id,
                 material_name: material.name,
@@ -269,6 +307,9 @@ export default function CreateCalculation({
                 unit_id: String(material.unit_id),
                 input_mode: 'unit',
                 unit_price: material.default_unit_price,
+                // Както при избор от каталога: без количество редът не влиза
+                // в сумата и промяната на цената не се отразява никъде.
+                quantity: line && line.quantity.trim() !== '' ? line.quantity : '1',
             });
         }
 
@@ -305,6 +346,7 @@ export default function CreateCalculation({
                 labor_cost: laborCost || '0',
                 other_costs: otherCosts || '0',
                 target_net_margin_percent: marginPercent || '0',
+                taxes_applied: taxesApplied,
                 final_price_override: priceOverride,
                 idempotency_key: idempotencyKey.current,
                 items: usableLines.map((line) => ({
@@ -354,11 +396,11 @@ export default function CreateCalculation({
               totalCost: result.totalCost.toFixed(2),
               profitBeforeTax: result.profitBeforeTax.toFixed(2),
               corporateTaxAmount: result.corporateTaxAmount.toFixed(2),
-              corporateRate: taxes.corporate,
+              corporateRate: effectiveTaxes.corporate,
               profitAfterCorporateTax: result.profitAfterCorporateTax.toFixed(2),
               dividendTaxAmount: result.dividendTaxAmount.toFixed(2),
-              dividendRate: taxes.dividend,
-              vatRate: taxes.vat,
+              dividendRate: effectiveTaxes.dividend,
+              vatRate: effectiveTaxes.vat,
               netProfit: result.netProfit.toFixed(2),
               finalPrice: result.finalPrice.toFixed(2),
               actualNetMargin: result.actualNetMargin.toFixed(6),
@@ -431,13 +473,7 @@ export default function CreateCalculation({
 
                             <div className="grid gap-2">
                                 <Label htmlFor="notes">Бележка</Label>
-                                <Textarea
-                                    id="notes"
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    rows={2}
-                                    placeholder="по желание"
-                                />
+                                <Textarea id="notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} placeholder="по желание" />
                                 <InputError message={errors.notes} />
                             </div>
                         </CardContent>
@@ -456,9 +492,7 @@ export default function CreateCalculation({
                     <Card>
                         <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
                             <CardTitle className="text-base">Материали</CardTitle>
-                            <span className="text-sm text-muted-foreground tabular-nums">
-                                {formatMoney(result.materialCostTotal, currency)}
-                            </span>
+                            <span className="text-muted-foreground text-sm tabular-nums">{formatMoney(result.materialCostTotal, currency)}</span>
                         </CardHeader>
                         <CardContent className="space-y-3">
                             {lines.length === 0 ? (
@@ -507,7 +541,10 @@ export default function CreateCalculation({
                                     <NumericInput
                                         id="labor_cost"
                                         value={laborCost}
-                                        onValueChange={setLaborCost}
+                                        onValueChange={(value) => {
+                                            setLaborCost(value);
+                                            setPriceOverride(null);
+                                        }}
                                         suffix={currency}
                                         placeholder="0,00"
                                         className="h-11"
@@ -520,7 +557,10 @@ export default function CreateCalculation({
                                     <NumericInput
                                         id="other_costs"
                                         value={otherCosts}
-                                        onValueChange={setOtherCosts}
+                                        onValueChange={(value) => {
+                                            setOtherCosts(value);
+                                            setPriceOverride(null);
+                                        }}
                                         suffix={currency}
                                         placeholder="0,00"
                                         className="h-11"
@@ -559,9 +599,9 @@ export default function CreateCalculation({
                                         ))}
                                     </div>
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Това е чистата печалба след корпоративен данък и данък дивидент, като процент от крайната цена — не надценка
-                                    върху разходите.
+                                <p className="text-muted-foreground text-xs">
+                                    Това е чистата печалба след корпоративен данък и данък дивидент, като процент от крайната цена — не надценка върху
+                                    разходите.
                                 </p>
                                 <InputError message={errors.target_net_margin_percent} />
                             </div>
@@ -580,6 +620,28 @@ export default function CreateCalculation({
                                 <FinancialSummary
                                     values={summaryValues}
                                     currency={currency}
+                                    taxesApplied={taxesApplied}
+                                    taxToggle={
+                                        <label className="mb-2 flex items-start gap-2.5 rounded-md border p-2.5">
+                                            <Checkbox
+                                                checked={taxesApplied}
+                                                onCheckedChange={(checked) => {
+                                                    setTaxesApplied(checked === true);
+                                                    // Закръглената цена важи за предишните данъци.
+                                                    setPriceOverride(null);
+                                                }}
+                                                aria-describedby="taxes-applied-hint"
+                                            />
+                                            <span className="grid gap-0.5">
+                                                <span className="text-sm leading-none font-medium">Начисли данъци</span>
+                                                <span id="taxes-applied-hint" className="text-muted-foreground text-xs">
+                                                    {taxesApplied
+                                                        ? 'Цената заделя пари за корпоративен данък и данък дивидент.'
+                                                        : 'Цената е без данъци — цялата печалба остава чиста, затова излиза по-ниска.'}
+                                                </span>
+                                            </span>
+                                        </label>
+                                    }
                                     actions={
                                         <>
                                             <Button
@@ -605,7 +667,7 @@ export default function CreateCalculation({
                             )}
 
                             {priceOverride && result.ok && (
-                                <p className="mt-3 text-xs text-muted-foreground">
+                                <p className="text-muted-foreground mt-3 text-xs">
                                     Цената е закръглена ръчно. Изчислената цена при {formatPercent(new Big(marginPercent || '0').div(100))} марж е{' '}
                                     {base.ok ? formatMoney(base.finalPrice, currency) : '—'}.{' '}
                                     <button type="button" className="underline" onClick={() => setPriceOverride(null)}>
@@ -629,16 +691,14 @@ export default function CreateCalculation({
             {/* Мобилна лента за записване над долната навигация. */}
             <div
                 className={cn(
-                    'fixed inset-x-0 bottom-14 z-30 border-t bg-background/95 px-4 py-2.5 backdrop-blur md:hidden print:hidden',
+                    'bg-background/95 fixed inset-x-0 bottom-14 z-30 border-t px-4 py-2.5 backdrop-blur md:hidden print:hidden',
                     'pb-[calc(0.625rem+env(safe-area-inset-bottom))]',
                 )}
             >
                 <div className="flex items-center gap-3">
                     <div className="min-w-0 flex-1">
-                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Крайна цена</p>
-                        <p className="truncate text-lg font-bold tabular-nums">
-                            {result.ok ? formatMoney(result.finalPrice, currency) : '—'}
-                        </p>
+                        <p className="text-muted-foreground text-[11px] tracking-wide uppercase">Крайна цена</p>
+                        <p className="truncate text-lg font-bold tabular-nums">{result.ok ? formatMoney(result.finalPrice, currency) : '—'}</p>
                     </div>
                     <Button type="submit" form="calculation-form" disabled={!canSubmit} className="h-11 px-5">
                         {processing ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}

@@ -31,6 +31,17 @@ final readonly class TaxRates
         );
     }
 
+    /**
+     * Нулеви ставки — за калкулация, при която потребителят съзнателно
+     * не заделя пари за данъци (услуга, предлагана без тях).
+     */
+    public static function none(): self
+    {
+        $zero = BigDecimal::zero();
+
+        return new self($zero, $zero, $zero);
+    }
+
     /** Ставки, възстановени от записана калкулация (за историческа коректност). */
     public static function fromSnapshot(string $corporate, string $dividend, string $vat): self
     {

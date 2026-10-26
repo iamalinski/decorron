@@ -12,6 +12,13 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::post('materials', [MaterialController::class, 'store'])->name('materials.store');
     Route::patch('materials/{material}', [MaterialController::class, 'update'])->name('materials.update');
     Route::patch('materials/{material}/archive', [MaterialController::class, 'archive'])->name('materials.archive');
+    Route::delete('materials/{material}', [MaterialController::class, 'destroy'])->name('materials.destroy');
+    Route::patch('materials/{material}/restore', [MaterialController::class, 'restore'])
+        ->withTrashed()
+        ->name('materials.restore');
+    Route::delete('materials/{material}/force', [MaterialController::class, 'forceDestroy'])
+        ->withTrashed()
+        ->name('materials.force-destroy');
 
     Route::get('units', [UnitController::class, 'index'])->name('units.index');
     Route::post('units', [UnitController::class, 'store'])->name('units.store');

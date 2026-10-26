@@ -23,4 +23,14 @@ class MaterialPolicy
     {
         return $material->isOwnedBy($user);
     }
+
+    public function restore(User $user, Material $material): bool
+    {
+        return $material->isOwnedBy($user);
+    }
+
+    public function forceDelete(User $user, Material $material): bool
+    {
+        return $material->isOwnedBy($user);
+    }
 }

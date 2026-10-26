@@ -72,6 +72,7 @@ class CalculationController extends Controller
 
         return Inertia::render('pricing::calculations/index', [
             'calculations' => CalculationResource::collection($calculations),
+            'trashed_count' => Calculation::query()->ownedBy($user)->onlyTrashed()->count(),
             'filters' => $filters,
         ]);
     }

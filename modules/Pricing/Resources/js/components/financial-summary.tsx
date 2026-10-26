@@ -24,6 +24,13 @@ interface FinancialSummaryProps {
     currency: string;
     /** Бутони под крайната цена (закръгляване, копиране). */
     actions?: ReactNode;
+    /**
+     * Заделя ли цената пари за корпоративен данък и данък дивидент.
+     * При false разбивката не показва данъчни редове — няма какво да покаже.
+     */
+    taxesApplied?: boolean;
+    /** Превключвателят за данъците — показва се над данъчния блок. */
+    taxToggle?: ReactNode;
     className?: string;
 }
 
@@ -40,7 +47,7 @@ function Line({ label, value, muted = false, strong = false }: { label: ReactNod
  * Разбивка на разходите, данъците и печалбата.
  * Крайната цена е най-видимият елемент.
  */
-export function FinancialSummary({ values, currency, actions, className }: FinancialSummaryProps) {
+export function FinancialSummary({ values, currency, actions, taxesApplied = true, taxToggle, className }: FinancialSummaryProps) {
     return (
         <div className={cn('space-y-4', className)}>
             <dl className="divide-y">
@@ -55,29 +62,40 @@ export function FinancialSummary({ values, currency, actions, className }: Finan
                 </div>
 
                 <div className="py-1">
+                    {taxToggle}
                     <Line label="Печалба преди данъци" value={formatMoney(values.profitBeforeTax, currency)} />
-                    <Line
-                        label={`Корпоративен данък (${formatPercent(values.corporateRate, 0)})`}
-                        value={`− ${formatMoney(values.corporateTaxAmount, currency)}`}
-                        muted
-                    />
-                    <Line label="Печалба след корпоративен данък" value={formatMoney(values.profitAfterCorporateTax, currency)} muted />
-                    <Line
-                        label={`Данък дивидент (${formatPercent(values.dividendRate, 0)})`}
-                        value={`− ${formatMoney(values.dividendTaxAmount, currency)}`}
-                        muted
-                    />
-                    <Line label={`ДДС (${formatPercent(values.vatRate, 0)})`} value={formatMoney('0', currency)} muted />
+                    {taxesApplied ? (
+                        <>
+                            <Line
+                                label={`Корпоративен данък (${formatPercent(values.corporateRate, 0)})`}
+                                value={`− ${formatMoney(values.corporateTaxAmount, currency)}`}
+                                muted
+                            />
+                            <Line label="Печалба след корпоративен данък" value={formatMoney(values.profitAfterCorporateTax, currency)} muted />
+                            <Line
+                                label={`Данък дивидент (${formatPercent(values.dividendRate, 0)})`}
+                                value={`− ${formatMoney(values.dividendTaxAmount, currency)}`}
+                                muted
+                            />
+                            <Line label={`ДДС (${formatPercent(values.vatRate, 0)})`} value={formatMoney('0', currency)} muted />
+                        </>
+                    ) : (
+                        <Line label="Корпоративен данък, дивидент и ДДС" value="не се начисляват" muted />
+                    )}
                 </div>
 
                 <div className="py-1">
-                    <Line label="Чиста печалба след данъци" value={formatMoney(values.netProfit, currency)} strong />
+                    <Line
+                        label={taxesApplied ? 'Чиста печалба след данъци' : 'Чиста печалба'}
+                        value={formatMoney(values.netProfit, currency)}
+                        strong
+                    />
                     <Line label="Реален чист марж" value={formatPercent(values.actualNetMargin)} />
                 </div>
             </dl>
 
-            <div className="rounded-xl bg-primary px-4 py-4 text-primary-foreground">
-                <p className="text-xs uppercase tracking-wide opacity-80">Крайна цена за клиента</p>
+            <div className="bg-primary text-primary-foreground rounded-xl px-4 py-4">
+                <p className="text-xs tracking-wide uppercase opacity-80">Крайна цена за клиента</p>
                 <p className="mt-1 text-3xl font-bold tabular-nums sm:text-4xl">{formatMoney(values.finalPrice, currency)}</p>
                 {actions && <div className="mt-3 flex flex-wrap gap-2">{actions}</div>}
             </div>

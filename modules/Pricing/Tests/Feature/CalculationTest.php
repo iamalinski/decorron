@@ -357,4 +357,89 @@ class CalculationTest extends TestCase
             ->assertOk()
             ->assertInertia(fn ($page) => $page->component('pricing::calculations/print'));
     }
+
+    #[Test]
+    public function a_calculation_can_be_saved_without_taxes(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('calculations.store'), $this->payload([
+                'taxes_applied' => false,
+                'labor_cost' => '40',
+                'items' => [[
+                    'material_id' => null,
+                    'material_name' => 'Балони хром',
+                    'sku' => null,
+                    'unit_id' => $this->unit->id,
+                    'quantity' => '1',
+                    'input_mode' => 'total',
+                    'entered_total_cost' => '40',
+                    'unit_price' => null,
+                ]],
+            ]))
+            ->assertRedirect();
+
+        $calculation = Calculation::query()->firstOrFail();
+
+        $this->assertFalse($calculation->taxes_applied);
+        $this->assertSame('133.33', (string) $calculation->final_price);
+        $this->assertSame('0.00', (string) $calculation->corporate_tax_amount);
+        $this->assertSame('0.00', (string) $calculation->dividend_tax_amount);
+
+        // Снимката на ставките отговаря на това, с което е смятано.
+        $this->assertSame('0.000000', (string) $calculation->corporate_tax_rate_snapshot);
+        $this->assertSame('0.000000', (string) $calculation->dividend_tax_rate_snapshot);
+    }
+
+    #[Test]
+    public function taxes_are_applied_unless_the_box_is_unchecked(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('calculations.store'), $this->payload())
+            ->assertRedirect();
+
+        $calculation = Calculation::query()->firstOrFail();
+
+        $this->assertTrue($calculation->taxes_applied);
+        $this->assertSame('0.100000', (string) $calculation->corporate_tax_rate_snapshot);
+    }
+
+    /** Без данъци маржът може да стигне до 100%, иначе спира на 85,5%. */
+    #[Test]
+    public function the_margin_ceiling_follows_the_tax_choice(): void
+    {
+        $this->actingAs($this->user)
+            ->post(route('calculations.store'), $this->payload(['target_net_margin_percent' => '90']))
+            ->assertSessionHasErrors('target_net_margin_percent');
+
+        $this->actingAs($this->user)
+            ->post(route('calculations.store'), $this->payload([
+                'target_net_margin_percent' => '90',
+                'taxes_applied' => false,
+            ]))
+            ->assertRedirect();
+    }
+
+    #[Test]
+    public function the_history_has_a_trash_view_with_its_own_count(): void
+    {
+        $kept = Calculation::factory()->create(['user_id' => $this->user->id]);
+        $trashed = Calculation::factory()->create(['user_id' => $this->user->id]);
+        $trashed->delete();
+
+        $this->actingAs($this->user)
+            ->get(route('calculations.index'))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->component('pricing::calculations/index')
+                ->has('calculations.data', 1)
+                ->where('calculations.data.0.id', $kept->id)
+                ->where('trashed_count', 1));
+
+        $this->actingAs($this->user)
+            ->get(route('calculations.index', ['status' => 'deleted']))
+            ->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('calculations.data', 1)
+                ->where('calculations.data.0.id', $trashed->id));
+    }
 }

@@ -48,6 +48,7 @@ class CalculationResource extends JsonResource
             'final_price' => (string) $this->final_price,
             'actual_net_margin' => (string) $this->actual_net_margin,
             'price_was_rounded' => (bool) $this->price_was_rounded,
+            'taxes_applied' => (bool) $this->taxes_applied,
             'currency' => $this->currency,
             'created_at' => $this->created_at?->toIso8601String(),
             'items' => CalculationItemResource::collection($this->whenLoaded('items')),

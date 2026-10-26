@@ -94,8 +94,12 @@ final class PricingCalculator
             );
         }
 
+        // Калкулация без данъци ползва нулеви ставки: формулата е същата,
+        // само net_factor става 1 и в цената не се заделя нищо за данъци.
+        $taxes = $input->taxesApplied ? $this->taxes : TaxRates::none();
+
         $margin = BigDecimal::of($input->targetNetMargin);
-        $netFactor = $this->taxes->netFactor();
+        $netFactor = $taxes->netFactor();
 
         $this->assertMarginIsUsable($margin, $netFactor);
 
@@ -113,10 +117,10 @@ final class PricingCalculator
         // Данъците се извеждат от вече закръглената крайна цена, за да е
         // разбивката на екрана винаги вътрешно съгласувана.
         $profitBeforeTax = $finalPrice->minus($totalCost)->toScale($this->moneyScale, RoundingMode::HALF_UP);
-        $corporateTax = $profitBeforeTax->multipliedBy($this->taxes->corporate)
+        $corporateTax = $profitBeforeTax->multipliedBy($taxes->corporate)
             ->toScale($this->moneyScale, RoundingMode::HALF_UP);
         $profitAfterCorporateTax = $profitBeforeTax->minus($corporateTax);
-        $dividendTax = $profitAfterCorporateTax->multipliedBy($this->taxes->dividend)
+        $dividendTax = $profitAfterCorporateTax->multipliedBy($taxes->dividend)
             ->toScale($this->moneyScale, RoundingMode::HALF_UP);
         $netProfit = $profitAfterCorporateTax->minus($dividendTax);
 
@@ -140,6 +144,10 @@ final class PricingCalculator
             finalPrice: (string) $finalPrice,
             actualNetMargin: (string) $actualMargin,
             priceWasOverridden: $input->finalPriceOverride !== null,
+            corporateRate: (string) $taxes->corporate,
+            dividendRate: (string) $taxes->dividend,
+            vatRate: (string) $taxes->vat,
+            taxesApplied: $input->taxesApplied,
         );
     }
 
@@ -227,10 +235,16 @@ final class PricingCalculator
         }
     }
 
-    /** Максималният чист марж, постижим при текущите ставки (изключващо). */
-    public function maximumNetMargin(): string
+    /**
+     * Максималният чист марж, постижим при текущите ставки (изключващо).
+     *
+     * Без данъци таванът е 100%: цялата печалба преди данъци остава чиста.
+     */
+    public function maximumNetMargin(bool $taxesApplied = true): string
     {
-        return (string) $this->taxes->netFactor()->toScale($this->rateScale, RoundingMode::DOWN);
+        $taxes = $taxesApplied ? $this->taxes : TaxRates::none();
+
+        return (string) $taxes->netFactor()->toScale($this->rateScale, RoundingMode::DOWN);
     }
 
     private function money(string $value): BigDecimal

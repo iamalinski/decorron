@@ -56,7 +56,7 @@ class MaterialRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'sku.unique' => 'Вече имате материал с този код.',
+            'sku.unique' => 'Вече имате материал с този код — проверете и в Кошчето.',
             'unit_id.exists' => 'Избраната мерна единица не съществува.',
         ];
     }

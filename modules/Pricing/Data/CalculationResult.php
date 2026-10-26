@@ -29,6 +29,11 @@ final readonly class CalculationResult
         public string $finalPrice,
         public string $actualNetMargin,
         public bool $priceWasOverridden,
+        /** Ставките, с които резултатът наистина е изчислен. */
+        public string $corporateRate = '0',
+        public string $dividendRate = '0',
+        public string $vatRate = '0',
+        public bool $taxesApplied = true,
     ) {}
 
     /** @return array<string, mixed> */
@@ -50,6 +55,10 @@ final readonly class CalculationResult
             'final_price' => $this->finalPrice,
             'actual_net_margin' => $this->actualNetMargin,
             'price_was_overridden' => $this->priceWasOverridden,
+            'corporate_rate' => $this->corporateRate,
+            'dividend_rate' => $this->dividendRate,
+            'vat_rate' => $this->vatRate,
+            'taxes_applied' => $this->taxesApplied,
         ];
     }
 }

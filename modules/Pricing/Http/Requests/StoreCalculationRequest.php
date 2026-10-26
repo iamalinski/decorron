@@ -46,6 +46,8 @@ class StoreCalculationRequest extends FormRequest
 
             'target_net_margin_percent' => ['required', 'numeric', 'min:0', $this->marginRule()],
 
+            // Без данъци цената не заделя нищо за корпоративен данък и дивидент.
+            'taxes_applied' => ['nullable', 'boolean'],
             'final_price_override' => ['nullable', 'numeric', 'min:0', 'max:999999999'],
             'idempotency_key' => ['nullable', 'string', 'max:64'],
 
@@ -113,18 +115,26 @@ class StoreCalculationRequest extends FormRequest
         });
     }
 
+    /** Начисляват ли се данъци — по подразбиране да. */
+    public function taxesApplied(): bool
+    {
+        return $this->boolean('taxes_applied', true);
+    }
+
     /** Маржът трябва да е под net_factor, иначе цената клони към безкрайност. */
     private function marginRule(): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail): void {
-            $max = BigDecimal::of(PricingCalculator::withCurrentRates()->maximumNetMargin())
+            $max = BigDecimal::of(PricingCalculator::withCurrentRates()->maximumNetMargin($this->taxesApplied()))
                 ->multipliedBy(100);
 
             if (BigDecimal::of((string) $value)->isGreaterThanOrEqualTo($max)) {
                 $fail(sprintf(
-                    'Желаният чист марж трябва да е под %s%%. При текущите данъчни ставки '
-                    .'по-висок чист марж е математически невъзможен.',
+                    'Желаният чист марж трябва да е под %s%%. %s',
                     (string) $max->toScale(2, RoundingMode::DOWN),
+                    $this->taxesApplied()
+                        ? 'При текущите данъчни ставки по-висок чист марж е математически невъзможен.'
+                        : 'Маржът е дял от крайната цена, затова не може да я достигне.',
                 ));
             }
         };
@@ -141,6 +151,7 @@ class StoreCalculationRequest extends FormRequest
             'labor_cost' => 'труд',
             'other_costs' => 'други разходи',
             'target_net_margin_percent' => 'желан чист марж',
+            'taxes_applied' => 'начисляване на данъци',
             'final_price_override' => 'закръглена цена',
             'items' => 'материали',
         ];
@@ -167,6 +178,7 @@ class StoreCalculationRequest extends FormRequest
             'labor_cost' => $this->input('labor_cost', 0) ?? 0,
             'other_costs' => $this->input('other_costs', 0) ?? 0,
             'items' => is_array($this->input('items')) ? $this->input('items') : [],
+            'taxes_applied' => $this->boolean('taxes_applied', true),
         ]);
     }
 
@@ -196,6 +208,7 @@ class StoreCalculationRequest extends FormRequest
             finalPriceOverride: isset($validated['final_price_override'])
                 ? (string) $validated['final_price_override']
                 : null,
+            taxesApplied: $this->taxesApplied(),
         );
     }
 }

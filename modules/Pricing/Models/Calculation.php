@@ -50,6 +50,7 @@ class Calculation extends Model
         'final_price',
         'actual_net_margin',
         'price_was_rounded',
+        'taxes_applied',
         'currency',
     ];
 
@@ -58,6 +59,7 @@ class Calculation extends Model
         return [
             'calculated_at' => 'date',
             'price_was_rounded' => 'boolean',
+            'taxes_applied' => 'boolean',
             'material_cost_total' => 'decimal:2',
             'labor_cost' => 'decimal:2',
             'other_costs' => 'decimal:2',
